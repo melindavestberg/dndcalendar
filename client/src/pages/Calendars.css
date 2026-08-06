@@ -1,0 +1,190 @@
+.calendars-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.calendars-page h1 {
+  color: var(--text-primary);
+  text-align: center;
+  margin: 0;
+}
+
+.calendars-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.calendar-form {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+}
+
+.calendar-form h2 {
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.calendars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.calendar-card-item {
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bg-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.calendar-card-item:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-gold);
+  transform: translateY(-3px);
+}
+
+.calendar-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.calendar-card-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.cal-desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.calendar-card-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+}
+
+.badge.owner {
+  background: var(--btn-primary-bg);
+  color: var(--text-inverse);
+  padding: 0.2rem 0.55rem;
+  border-radius: 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.calendar-members {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.member-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 2px solid var(--accent-gold);
+  box-shadow: var(--shadow-glow);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.member-count {
+  font-size: 0.8rem;
+  margin-left: 0.25rem;
+  color: var(--text-secondary);
+}
+
+.join-code-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.375rem;
+  align-items: center;
+  padding: 0.5rem;
+}
+
+.join-code-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.join-code {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent-green);
+  background: rgba(83, 195, 106, 0.12);
+  border: 1px dashed var(--accent-green);
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  margin-left: 0.35rem;
+}
+
+.calendar-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-card-actions .btn-primary {
+  flex: 1;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-secondary);
+}
+
+.empty-state p {
+  margin: 0.5rem 0;
+}
+
+@media (max-width: 600px) {
+
+  .calendars-actions {
+    flex-direction: column;
+  }
+
+  .calendars-grid {
+    color: var(--text-secondary);
+  }
+
+  .calendar-card-actions .btn-primary {
+    flex: 1;
+  }
+
+  .empty-state {
+    color: #888;
+  }
+}

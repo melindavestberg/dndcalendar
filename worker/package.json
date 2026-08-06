@@ -1,0 +1,23 @@
+{
+  "name": "dndcalendar-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:remote": "wrangler dev --remote",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250429.0",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.114.12"
+  }
+}
+

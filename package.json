@@ -1,0 +1,19 @@
+{
+  "name": "dndcalendar",
+  "version": "1.0.0",
+  "description": "D&D Calendar - Manage player availability",
+  "type": "module",
+  "scripts": {
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "worker:dev": "cd worker && npm run dev",
+    "worker:dev:remote": "cd worker && npm run dev:remote",
+    "worker:deploy": "cd worker && npm run deploy"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

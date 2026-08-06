@@ -1,0 +1,26 @@
+name = "dndcalendar-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-29"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dndcalendar-db"
+database_id = "6ee9354a-10a3-4c9b-b9cc-5826e75a6727"
+
+[vars]
+ALLOWED_ORIGIN = "https://dndcalendar.pages.dev"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
