@@ -65,9 +65,22 @@
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: 2rem repeat(7, minmax(0, 1fr));
   gap: 0.2rem;
   margin-bottom: 1.75rem;
+}
+
+.calendar-week-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.calendar-week-header {
+  text-transform: none;
 }
 
 .calendar-day-header {
@@ -462,6 +475,14 @@ input:checked + .slider:before {
 
   .calendar-day {
     padding: 0.2rem;
+  }
+
+  .calendar-grid {
+    grid-template-columns: 1.5rem repeat(7, minmax(0, 1fr));
+  }
+
+  .calendar-week-number {
+    font-size: 0.65rem;
   }
 
   .calendar-day-header {
