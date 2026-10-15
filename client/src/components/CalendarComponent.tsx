@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getSwedenHolidaysForYear, getHolidayName } from '../utils/swedishHolidays';
 import { AvailabilityByDate, AvailabilityRecord, DisabledDateRecord } from '../types';
 
@@ -15,6 +15,18 @@ interface CalendarComponentProps {
   selectedDateForInspect: string | null;
   onSelectDateForInspect: (dateKey: string | null) => void;
 }
+
+// ISO 8601 week number (the system used in Sweden): weeks start on Monday,
+// and week 1 is the week containing the year's first Thursday.
+const getIsoWeek = (year: number, month: number, day: number): number => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dayNum = (date.getUTCDay() + 6) % 7; // Monday=0
+  date.setUTCDate(date.getUTCDate() - dayNum + 3); // Thursday of this week
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+  return 1 + Math.round((date.getTime() - firstThursday.getTime()) / (7 * 86400000));
+};
 
 function CalendarComponent({
   month,
@@ -135,6 +147,7 @@ function CalendarComponent({
 
   return (
     <div className="calendar-grid">
+      <div className="calendar-day-header calendar-week-header" title="Vecka">v.</div>
       {dayNames.map((name) => (
         <div key={name} className="calendar-day-header">
           {name}
@@ -150,9 +163,17 @@ function CalendarComponent({
           .map((u) => u.username)
           .join(', ');
 
+         // Each row starts on a Monday; index - firstDay + 1 is that Monday's date, +3 is the Thursday
+         const weekCell = index % 7 === 0 ? (
+           <div key={`week-${index}`} className="calendar-week-number" title="Vecka">
+             {getIsoWeek(year, month, index - firstDay + 1 + 3)}
+           </div>
+         ) : null;
+
          return (
+           <React.Fragment key={index}>
+           {weekCell}
            <div
-             key={index}
               className={`calendar-day ${day ? status : 'empty'} ${isPastDate(day) ? 'past' : ''} ${dateKey && isHoliday(dateKey) ? 'holiday' : ''} ${isWeekend(day) ? 'weekend' : ''} ${dateKey && selectedDateForInspect === dateKey ? 'selected' : ''} ${adminDisableMode ? 'admin-mode' : ''}`}
               onClick={() => handleDayClick(day)}
               onMouseEnter={() => {
@@ -188,6 +209,7 @@ function CalendarComponent({
               </>
             )}
           </div>
+          </React.Fragment>
         );
       })}
     </div>
