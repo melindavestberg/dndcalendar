@@ -15,13 +15,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: client/package.json
 
       - name: Install dependencies
         working-directory: client
         run: npm ci
+
+      - name: Install worker dependencies
+        working-directory: worker
+        run: npm ci
+
+      - name: Check and test worker
+        working-directory: worker
+        run: npm run check && npm test
 
       - name: Build
         working-directory: client
@@ -34,6 +42,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.2'
           command: deploy
           workingDirectory: worker
 
@@ -42,6 +51,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.2'
           command: pages deploy build --project-name=dndcalendar
           workingDirectory: client
 
