@@ -51,6 +51,10 @@ export const toggleAvailability = async (request: Request, env: Env, responseHea
       .run();
   }
 
+  await env.DB.prepare('UPDATE calendar_members SET last_edit_at = ?, last_seen_at = ? WHERE calendar_id = ? AND user_id = ?')
+    .bind(now, now, calendarId, auth.userId)
+    .run();
+
   const updated = await env.DB.prepare(
     'SELECT * FROM availability WHERE calendar_id = ? AND user_id = ? AND date_ymd = ?'
   )

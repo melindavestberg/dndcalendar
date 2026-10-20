@@ -1,6 +1,6 @@
 import { Env, AvailabilitySummaryRow, DisabledDateWithUserRow } from '../types';
 import { json, parseBody, formatDateYmd, ResponseHeaders } from '../utils';
-import { requireAuth, isAuthError, requireCalendarOwner } from '../auth-middleware';
+import { requireAuth, isAuthError, requireCalendarCan } from '../auth-middleware';
 
 export const disableDate = async (request: Request, env: Env, responseHeaders: ResponseHeaders, calendarId: string): Promise<Response> => {
   const auth = await requireAuth(request, env);
@@ -8,9 +8,9 @@ export const disableDate = async (request: Request, env: Env, responseHeaders: R
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const ownerCheck = await requireCalendarOwner(env, calendarId, auth.userId, auth.isAdmin);
-  if ('error' in ownerCheck) {
-    return json({ error: ownerCheck.error }, ownerCheck.status, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'dates.block');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   const { date, reason } = await parseBody(request);
@@ -53,9 +53,9 @@ export const enableDate = async (request: Request, env: Env, responseHeaders: Re
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const ownerCheck = await requireCalendarOwner(env, calendarId, auth.userId, auth.isAdmin);
-  if ('error' in ownerCheck) {
-    return json({ error: ownerCheck.error }, ownerCheck.status, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'dates.block');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   const { date } = await parseBody(request);
@@ -82,9 +82,9 @@ export const getDisabledDates = async (request: Request, env: Env, responseHeade
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const ownerCheck = await requireCalendarOwner(env, calendarId, auth.userId, auth.isAdmin);
-  if ('error' in ownerCheck) {
-    return json({ error: ownerCheck.error }, ownerCheck.status, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'dates.block');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   const disabledDates = await env.DB.prepare(
@@ -109,9 +109,9 @@ export const getAvailabilitySummary = async (
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const ownerCheck = await requireCalendarOwner(env, calendarId, auth.userId, auth.isAdmin);
-  if ('error' in ownerCheck) {
-    return json({ error: ownerCheck.error }, ownerCheck.status, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'members.viewSummary');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));

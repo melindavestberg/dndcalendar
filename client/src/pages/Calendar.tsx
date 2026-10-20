@@ -7,7 +7,7 @@ import UserListComponent from '../components/UserListComponent';
 import './Calendar.css';
 import KeyIcon from '../icons/key.svg?react';
 import CopyIcon from '../icons/copy.svg?react';
-import { AvailabilityByDate, AvailabilityRecord, CalendarMeta, DisabledDateRecord, User } from '../types';
+import { AvailabilityByDate, AvailabilityRecord, CalendarMeta, DisabledDateRecord, Role, User, can } from '../types';
 
 function Calendar() {
   const { calendarId } = useParams<{ calendarId: string }>();
@@ -110,7 +110,7 @@ function Calendar() {
         : `/api/admin/${calendarId}/disable-date`;
       const payload = isCurrentlyDisabled
         ? { date: dateKey }
-        : { date: dateKey, reason: 'Disabled from calendar by owner' };
+        : { date: dateKey, reason: 'Disabled from calendar by admin' };
 
       await api.post(endpoint, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -190,6 +190,34 @@ function Calendar() {
     }
   };
 
+  const handleSetRole = async (userId: string, username: string, role: 'admin' | 'member') => {
+    if (!window.confirm(role === 'admin' ? `Make ${username} an admin?` : `Remove admin rights from ${username}?`)) return;
+    try {
+      const res = await api.post(
+        `/api/calendars/${calendarId}/role`,
+        { userId, role },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCalendarMeta(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to change role'));
+    }
+  };
+
+  const handleTransfer = async (userId: string, username: string) => {
+    if (!window.confirm(`Make ${username} the owner? You will become an admin and cannot undo this yourself.`)) return;
+    try {
+      const res = await api.post(
+        `/api/calendars/${calendarId}/transfer`,
+        { userId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCalendarMeta(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to transfer ownership'));
+    }
+  };
+
   const handlePreviousMonth = () => {
     if (month === 1) { setMonth(12); setYear(year - 1); } else { setMonth(month - 1); }
   };
@@ -197,7 +225,7 @@ function Calendar() {
     if (month === 12) { setMonth(1); setYear(year + 1); } else { setMonth(month + 1); }
   };
 
-  const isOwner = calendarMeta && currentUser && calendarMeta.owner?.id === currentUser.id;
+  const myRole: Role = calendarMeta?.members.find((m) => m.userId.id === currentUser?.id)?.role ?? 'member';
 
   return (
       <div className="calendar-card">
@@ -253,8 +281,8 @@ function Calendar() {
           />
 
         <div className="options">
-          {/* Admin disable mode toggle (owners only) */}
-          {isOwner && (
+          {/* Admin disable mode toggle (admins and the owner) */}
+          {can(myRole, 'dates.block') && (
               <div className="admin-toggle-row">
                 Block Mode
                 <label className="switch">
@@ -332,8 +360,10 @@ function Calendar() {
               currentUserId={currentUser?.id}
               onUpdateColor={handleUpdateMyColor}
               updatingUserId={updatingColorUserId}
-              isOwner={Boolean(isOwner)}
+              myRole={myRole}
               onKickMember={handleKickMember}
+              onSetRole={handleSetRole}
+              onTransfer={handleTransfer}
             />
           </div>
         )}
