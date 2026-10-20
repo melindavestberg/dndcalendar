@@ -23,6 +23,14 @@ jobs:
         working-directory: client
         run: npm ci
 
+      - name: Install worker dependencies
+        working-directory: worker
+        run: npm ci
+
+      - name: Check and test worker
+        working-directory: worker
+        run: npm run check && npm test
+
       - name: Build
         working-directory: client
         run: npm run build
