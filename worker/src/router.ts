@@ -9,7 +9,9 @@ import {
   leaveCalendar,
   deleteCalendar,
   updateMemberColor,
-  kickMember
+  kickMember,
+  setMemberRole,
+  transferOwnership
 } from './routes/calendars';
 import { toggleAvailability, getMonthAvailability } from './routes/availability';
 import { disableDate, enableDate, getDisabledDates, getAvailabilitySummary } from './routes/admin';
@@ -70,6 +72,16 @@ export const router = async (request: Request, env: Env, responseHeaders: Respon
   const kickMatch = pathname.match(/^\/api\/calendars\/([^/]+)\/kick$/);
   if (method === 'POST' && kickMatch) {
     return kickMember(request, env, responseHeaders, kickMatch[1]);
+  }
+
+  const roleMatch = pathname.match(/^\/api\/calendars\/([^/]+)\/role$/);
+  if (method === 'POST' && roleMatch) {
+    return setMemberRole(request, env, responseHeaders, roleMatch[1]);
+  }
+
+  const transferMatch = pathname.match(/^\/api\/calendars\/([^/]+)\/transfer$/);
+  if (method === 'POST' && transferMatch) {
+    return transferOwnership(request, env, responseHeaders, transferMatch[1]);
   }
 
   const calendarMatch = pathname.match(/^\/api\/calendars\/([^/]+)$/);

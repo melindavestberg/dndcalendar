@@ -1,25 +1,33 @@
 import { pickLeastUsedColor, USER_COLOR_PALETTE } from '../userColors';
 import { Env, CalendarRow, MemberWithUserRow, UserRow, ColorCountRow } from '../types';
 import { json, parseBody, generateId, generateJoinCode, sanitizeUser, ResponseHeaders } from '../utils';
-import { requireAuth, isAuthError, requireCalendarOwner } from '../auth-middleware';
+import { requireAuth, isAuthError, requireCalendarCan, getMemberRole } from '../auth-middleware';
+import { RANK, Role, can } from '../permissions';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-const buildCalendarResponse = async (env: Env, calendar: CalendarRow) => {
+// Activity timestamps are only included for viewers who may see them.
+const buildCalendarResponse = async (env: Env, calendar: CalendarRow, viewerRole?: Role) => {
   const owner = await env.DB.prepare('SELECT * FROM users WHERE id = ?')
     .bind(calendar.owner_user_id)
     .first<UserRow>();
 
   const members = await env.DB.prepare(
-    'SELECT u.*, cm.color FROM users u JOIN calendar_members cm ON u.id = cm.user_id WHERE cm.calendar_id = ?'
+    'SELECT u.*, cm.color, cm.role, cm.last_seen_at, cm.last_edit_at FROM users u JOIN calendar_members cm ON u.id = cm.user_id WHERE cm.calendar_id = ?'
   )
     .bind(calendar.id)
     .all<MemberWithUserRow>();
 
+  const showActivity = viewerRole !== undefined && can(viewerRole, 'members.viewActivity');
+
   return {
     ...calendar,
     owner: sanitizeUser(owner!),
-    members: members.results.map((u) => ({ userId: { ...sanitizeUser(u), color: u.color } }))
+    members: members.results.map((u) => ({
+      userId: { ...sanitizeUser(u), color: u.color },
+      role: u.role,
+      ...(showActivity && { lastSeenAt: u.last_seen_at, lastEditAt: u.last_edit_at })
+    }))
   };
 };
 
@@ -54,7 +62,7 @@ export const createCalendar = async (request: Request, env: Env, responseHeaders
   const assignedColor = pickLeastUsedColor(colorCounts.results);
 
   await env.DB.prepare(
-    'INSERT INTO calendar_members (calendar_id, user_id, color, joined_at) VALUES (?, ?, ?, ?)'
+    "INSERT INTO calendar_members (calendar_id, user_id, color, joined_at, role) VALUES (?, ?, ?, ?, 'owner')"
   ).bind(calendarId, auth.userId, assignedColor, now).run();
 
   const calendar = await env.DB.prepare('SELECT * FROM calendars WHERE id = ?').bind(calendarId).first<CalendarRow>();
@@ -142,15 +150,21 @@ export const getCalendar = async (request: Request, env: Env, responseHeaders: R
     return json({ error: 'Calendar not found' }, 404, responseHeaders);
   }
 
-  const isMember = await env.DB.prepare('SELECT * FROM calendar_members WHERE calendar_id = ? AND user_id = ?')
-    .bind(calendarId, auth.userId)
-    .first();
-
-  if (!isMember) {
+  const role = await getMemberRole(env, calendarId, auth.userId);
+  if (!role) {
     return json({ error: 'You are not a member of this calendar' }, 403, responseHeaders);
   }
 
-  return json(await buildCalendarResponse(env, calendar), 200, responseHeaders);
+  // Throttled to one write per 5 minutes so opening the page does not write every time.
+  const now = new Date().toISOString();
+  const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  await env.DB.prepare(
+    'UPDATE calendar_members SET last_seen_at = ? WHERE calendar_id = ? AND user_id = ? AND (last_seen_at IS NULL OR last_seen_at < ?)'
+  )
+    .bind(now, calendarId, auth.userId, cutoff)
+    .run();
+
+  return json(await buildCalendarResponse(env, calendar, role), 200, responseHeaders);
 };
 
 export const leaveCalendar = async (request: Request, env: Env, responseHeaders: ResponseHeaders, calendarId: string): Promise<Response> => {
@@ -165,7 +179,7 @@ export const leaveCalendar = async (request: Request, env: Env, responseHeaders:
     return json({ error: 'Calendar not found' }, 404, responseHeaders);
   }
 
-  if (calendar.owner_user_id === auth.userId) {
+  if ((await getMemberRole(env, calendarId, auth.userId)) === 'owner') {
     return json({ error: 'Owner cannot leave — delete the calendar instead' }, 400, responseHeaders);
   }
 
@@ -182,14 +196,9 @@ export const deleteCalendar = async (request: Request, env: Env, responseHeaders
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const calendar = await env.DB.prepare('SELECT * FROM calendars WHERE id = ?').bind(calendarId).first<CalendarRow>();
-
-  if (!calendar) {
-    return json({ error: 'Calendar not found' }, 404, responseHeaders);
-  }
-
-  if (calendar.owner_user_id !== auth.userId) {
-    return json({ error: 'Only the owner can delete this calendar' }, 403, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'calendar.delete');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   await env.DB.prepare('DELETE FROM calendars WHERE id = ?').bind(calendarId).run();
@@ -203,9 +212,9 @@ export const kickMember = async (request: Request, env: Env, responseHeaders: Re
     return json({ error: auth.error }, auth.status, responseHeaders);
   }
 
-  const ownerCheck = await requireCalendarOwner(env, calendarId, auth.userId, auth.isAdmin);
-  if ('error' in ownerCheck) {
-    return json({ error: ownerCheck.error }, ownerCheck.status, responseHeaders);
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'members.kick');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
   }
 
   const { userId } = await parseBody(request);
@@ -213,23 +222,87 @@ export const kickMember = async (request: Request, env: Env, responseHeaders: Re
     return json({ error: 'userId required' }, 400, responseHeaders);
   }
 
-  if (userId === ownerCheck.calendar.owner_user_id) {
+  const targetRole = await getMemberRole(env, calendarId, userId);
+  if (!targetRole) {
+    return json({ error: 'That user is not a member of this calendar' }, 404, responseHeaders);
+  }
+
+  if (targetRole === 'owner') {
     return json({ error: 'Owner cannot be kicked' }, 400, responseHeaders);
   }
 
-  const isMember = await env.DB.prepare('SELECT * FROM calendar_members WHERE calendar_id = ? AND user_id = ?')
-    .bind(calendarId, userId)
-    .first();
-
-  if (!isMember) {
-    return json({ error: 'That user is not a member of this calendar' }, 404, responseHeaders);
+  if (RANK[targetRole] >= RANK[access.role]) {
+    return json({ error: 'You can only kick members ranked below you' }, 403, responseHeaders);
   }
 
   await env.DB.prepare('DELETE FROM calendar_members WHERE calendar_id = ? AND user_id = ?')
     .bind(calendarId, userId)
     .run();
 
-  return json(await buildCalendarResponse(env, ownerCheck.calendar), 200, responseHeaders);
+  return json(await buildCalendarResponse(env, access.calendar, access.role), 200, responseHeaders);
+};
+
+export const setMemberRole = async (request: Request, env: Env, responseHeaders: ResponseHeaders, calendarId: string): Promise<Response> => {
+  const auth = await requireAuth(request, env);
+  if (isAuthError(auth)) {
+    return json({ error: auth.error }, auth.status, responseHeaders);
+  }
+
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'members.setRole');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
+  }
+
+  const { userId, role } = await parseBody(request);
+  if (!userId || (role !== 'admin' && role !== 'member')) {
+    return json({ error: "userId and role ('admin' or 'member') required" }, 400, responseHeaders);
+  }
+
+  const targetRole = await getMemberRole(env, calendarId, userId);
+  if (!targetRole) {
+    return json({ error: 'That user is not a member of this calendar' }, 404, responseHeaders);
+  }
+
+  if (targetRole === 'owner') {
+    return json({ error: "The owner's role can only change by transferring ownership" }, 400, responseHeaders);
+  }
+
+  await env.DB.prepare('UPDATE calendar_members SET role = ? WHERE calendar_id = ? AND user_id = ?')
+    .bind(role, calendarId, userId)
+    .run();
+
+  return json(await buildCalendarResponse(env, access.calendar, access.role), 200, responseHeaders);
+};
+
+export const transferOwnership = async (request: Request, env: Env, responseHeaders: ResponseHeaders, calendarId: string): Promise<Response> => {
+  const auth = await requireAuth(request, env);
+  if (isAuthError(auth)) {
+    return json({ error: auth.error }, auth.status, responseHeaders);
+  }
+
+  const access = await requireCalendarCan(env, calendarId, auth.userId, 'calendar.transfer');
+  if ('error' in access) {
+    return json({ error: access.error }, access.status, responseHeaders);
+  }
+
+  const { userId } = await parseBody(request);
+  if (!userId) {
+    return json({ error: 'userId required' }, 400, responseHeaders);
+  }
+
+  if ((await getMemberRole(env, calendarId, userId)) !== 'admin') {
+    return json({ error: 'Ownership can only be transferred to an admin' }, 400, responseHeaders);
+  }
+
+  // One atomic batch so the calendar never has zero or two owners. Demote first: the unique index allows one owner.
+  await env.DB.batch([
+    env.DB.prepare("UPDATE calendar_members SET role = 'admin' WHERE calendar_id = ? AND user_id = ?").bind(calendarId, auth.userId),
+    env.DB.prepare("UPDATE calendar_members SET role = 'owner' WHERE calendar_id = ? AND user_id = ?").bind(calendarId, userId),
+    env.DB.prepare('UPDATE calendars SET owner_user_id = ? WHERE id = ?').bind(userId, calendarId)
+  ]);
+
+  const updated = await env.DB.prepare('SELECT * FROM calendars WHERE id = ?').bind(calendarId).first<CalendarRow>();
+  return json(await buildCalendarResponse(env, updated!, 'admin'), 200, responseHeaders);
 };
 
 export const updateMemberColor = async (request: Request, env: Env, responseHeaders: ResponseHeaders, calendarId: string): Promise<Response> => {

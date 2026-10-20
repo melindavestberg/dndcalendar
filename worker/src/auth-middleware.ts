@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { Env, JwtPayload, AuthContext, AuthError, CalendarRow } from './types';
 import { getBearerToken } from './utils';
+import { Role, Capability, can } from './permissions';
 
 export type AuthResult = AuthContext | AuthError;
 
@@ -41,16 +42,24 @@ export const requireAuth = async (request: Request, env: Env): Promise<AuthResul
   return { userId: payload.userId, isAdmin: payload.isAdmin };
 };
 
-export const requireCalendarOwner = async (env: Env, calendarId: string, userId: string, isAdmin: number) => {
+export const getMemberRole = async (env: Env, calendarId: string, userId: string): Promise<Role | null> => {
+  const row = await env.DB.prepare('SELECT role FROM calendar_members WHERE calendar_id = ? AND user_id = ?')
+    .bind(calendarId, userId)
+    .first<{ role: Role }>();
+  return row ? row.role : null;
+};
+
+export const requireCalendarCan = async (env: Env, calendarId: string, userId: string, capability: Capability) => {
   const calendar = await env.DB.prepare('SELECT * FROM calendars WHERE id = ?').bind(calendarId).first<CalendarRow>();
 
   if (!calendar) {
     return { error: 'Calendar not found', status: 404 } as const;
   }
 
-  if (calendar.owner_user_id !== userId && !isAdmin) {
-    return { error: 'Only the calendar owner can do this', status: 403 } as const;
+  const role = await getMemberRole(env, calendarId, userId);
+  if (!role || !can(role, capability)) {
+    return { error: 'You do not have permission to do this', status: 403 } as const;
   }
 
-  return { calendar };
+  return { calendar, role };
 };

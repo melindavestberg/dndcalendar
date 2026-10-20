@@ -37,6 +37,15 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.REACT_APP_API_URL }}
 
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.2'
+          command: d1 migrations apply dndcalendar-db --remote
+          workingDirectory: worker
+
       - name: Deploy Worker to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:

@@ -6,6 +6,7 @@ compatibility_date = "2026-04-29"
 binding = "DB"
 database_name = "dndcalendar-db"
 database_id = "6ee9354a-10a3-4c9b-b9cc-5826e75a6727"
+migrations_dir = "migrations"
 
 [vars]
 ALLOWED_ORIGIN = "https://dndcalendar.pages.dev"

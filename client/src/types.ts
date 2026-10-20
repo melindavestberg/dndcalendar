@@ -6,8 +6,27 @@ export interface User {
   color?: string;
 }
 
+export type Role = 'member' | 'admin' | 'owner';
+
+export const RANK: Record<Role, number> = { member: 0, admin: 1, owner: 2 };
+
+// Mirrors worker/src/permissions.ts; the server enforces it, this only decides what to show.
+const CAN = {
+  'dates.block': 'admin',
+  'members.kick': 'admin',
+  'members.viewActivity': 'admin',
+  'members.setRole': 'owner',
+  'calendar.transfer': 'owner'
+} as const satisfies Record<string, Role>;
+
+export const can = (role: Role, capability: keyof typeof CAN): boolean => RANK[role] >= RANK[CAN[capability]];
+
 export interface CalendarMember {
   userId: User & { color: string };
+  role: Role;
+  // Only sent to admins and the owner.
+  lastSeenAt?: string | null;
+  lastEditAt?: string | null;
 }
 
 export interface CalendarMeta {

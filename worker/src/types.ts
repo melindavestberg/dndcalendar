@@ -1,3 +1,5 @@
+import type { Role } from './permissions';
+
 export interface Env {
   DB: D1Database;
   JWT_SECRET: string;
@@ -26,11 +28,15 @@ export interface CalendarMemberRow {
   calendar_id: string;
   user_id: string;
   color: string;
+  role: Role;
   joined_at: string;
 }
 
 export interface MemberWithUserRow extends UserRow {
   color: string;
+  role: Role;
+  last_seen_at: string | null;
+  last_edit_at: string | null;
 }
 
 export interface AvailabilityRow {
