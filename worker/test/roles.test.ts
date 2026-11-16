@@ -100,6 +100,16 @@ describe('other capabilities', () => {
     expect((await call('POST', `/api/admin/${cal}/disable-date`, admin.token, { date: '2030-01-15' })).status).toBe(201);
   });
 
+  it('blocking a date keeps members\' availability, so unblocking restores it', async () => {
+    const { cal, admin, member } = await setup();
+    await call('POST', `/api/availability/${cal}/toggle`, member.token, { date: '2030-05-01' });
+    await call('POST', `/api/admin/${cal}/disable-date`, admin.token, { date: '2030-05-01' });
+    const has = async () => (await db.prepare('SELECT 1 FROM availability WHERE calendar_id = ? AND date_ymd = ?').bind(cal, '2030-05-01').first()) !== null;
+    expect(await has()).toBe(true);
+    await call('POST', `/api/admin/${cal}/enable-date`, admin.token, { date: '2030-05-01' });
+    expect(await has()).toBe(true);
+  });
+
   it('only the owner can delete the calendar', async () => {
     const { cal, owner, admin } = await setup();
     expect((await call('DELETE', `/api/calendars/${cal}`, admin.token)).status).toBe(403);

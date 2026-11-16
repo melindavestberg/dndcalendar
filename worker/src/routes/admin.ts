@@ -36,10 +36,6 @@ export const disableDate = async (request: Request, env: Env, responseHeaders: R
     .bind(calendarId, dateYmd, reason || 'Date disabled by admin', auth.userId, now)
     .run();
 
-  await env.DB.prepare('DELETE FROM availability WHERE calendar_id = ? AND date_ymd = ?')
-    .bind(calendarId, dateYmd)
-    .run();
-
   const disabled = await env.DB.prepare('SELECT * FROM disabled_dates WHERE calendar_id = ? AND date_ymd = ?')
     .bind(calendarId, dateYmd)
     .first();
@@ -124,7 +120,8 @@ export const getAvailabilitySummary = async (
     `SELECT a.date_ymd, u.username, u.email, cm.color FROM availability a
      JOIN users u ON a.user_id = u.id
      JOIN calendar_members cm ON a.calendar_id = cm.calendar_id AND a.user_id = cm.user_id
-     WHERE a.calendar_id = ? AND a.available = 1 AND a.date_ymd >= ? AND a.date_ymd < ?`
+     WHERE a.calendar_id = ? AND a.available = 1 AND a.date_ymd >= ? AND a.date_ymd < ?
+       AND NOT EXISTS (SELECT 1 FROM disabled_dates dd WHERE dd.calendar_id = a.calendar_id AND dd.date_ymd = a.date_ymd)`
   )
     .bind(calendarId, startYmd, endYmd)
     .all<AvailabilitySummaryRow>();
